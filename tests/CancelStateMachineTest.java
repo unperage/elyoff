@@ -7,7 +7,7 @@ import io.github.unperage.elyoff.logic.CancelStateMachine;
  * 重点覆盖用户报告的 bug：
  *   第一次空中取消后，松开再按应能重新起飞（早期计时器版本会失败）。
  */
-public class StateMachineTest {
+public class CancelStateMachineTest {
 
     private static int failures = 0;
     private static int checks = 0;
