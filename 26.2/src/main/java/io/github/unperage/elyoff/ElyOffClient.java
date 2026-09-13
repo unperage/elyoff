@@ -1,5 +1,6 @@
 package io.github.unperage.elyoff;
 
+import io.github.unperage.elyoff.logic.CancelStateMachine;
 import io.github.unperage.elyoff.net.HelloC2S;
 import io.github.unperage.elyoff.net.HelloS2C;
 import net.fabricmc.api.ClientModInitializer;
@@ -14,25 +15,32 @@ import net.minecraft.client.player.LocalPlayer;
  * 客户端分支（兜底）。
  * <p>
  * 规则：<b>仅当服务端没有生效时</b>才在本地取消滑翔；
- * 一旦确认服务端装了 ElyOff（收到握手包，或可以发送 C2S 包），客户端逻辑立即停跑，
+ * 一旦确认服务端装了 ElyOff（收到握手包，或可以直接发送 C2S 包），客户端就不再落手，
  * 完全交给服务端处理，避免两端重复触发。
  * <p>
- * 与状态机同源的规则：取消只认"滑翔途中的上升沿"；取消后按住跳跃键期间保持取消，松开即解锁。
+ * 判定规则与服务端共用 {@link CancelStateMachine}：只看跳跃键的<b>当前按住状态</b>，
+ * 认"滑翔途中的上升沿"；取消后按住跳跃键期间保持取消，松开即解锁。
+ * <p>
+ * <b>注意</b>：这里刻意不使用 {@code KeyMapping#consumeClick()}。
+ * 原版跳跃键从不消费点击，其内部 clickCount 只会随着每一次按下单调累加
+ * （地面起跳 +1、空中起飞 +1 ……），而 vanilla 也从不清理它。
+ * 一旦读取该队列，滑翔刚过门槛 tick 就会取到很久以前遗留的陈旧按键，
+ * 表现为"刚按跳跃起飞就被取消，而且每次都是"。键位状态法是唯一正确的取法。
  */
 @Environment(EnvType.CLIENT)
 public class ElyOffClient implements ClientModInitializer {
 
-    /** 滑翔开始后至少经过这么多 tick 才允许按键取消（避开"跳跃起飞"那次按下）。 */
-    private static final int MIN_GLIDE_TICKS = 5;
+    /** 加入服务器后先观望这么多 tick，等握手结论落地，避免两端同时动手。 */
+    private static final int HANDSHAKE_GRACE_TICKS = 40;
 
     /** 服务端是否已生效（收到 S2C 握手包）。 */
     private static volatile boolean serverActive = false;
 
-    /** 本次滑翔已持续的 tick 数。 */
-    private static int glideTicks = 0;
+    /** 本地玩家独立的状态机（与服务端同源）。 */
+    private static final CancelStateMachine STATE = new CancelStateMachine();
 
-    /** 取消之后、跳跃键尚未松开期间，禁止重新进入滑翔。 */
-    private static boolean suppressWhileHeld = false;
+    /** 距离本次进入世界过了多少 tick，用于握手宽限期。 */
+    private static int sinceJoin = 0;
 
     @Override
     public void onInitializeClient() {
@@ -57,42 +65,30 @@ public class ElyOffClient implements ClientModInitializer {
                 return;
             }
 
-            boolean jumpDown = client.options.keyJump.isDown();
-
-            // 取消后"按住期间保持取消"，松开即解锁
-            if (suppressWhileHeld) {
-                if (!jumpDown) {
-                    suppressWhileHeld = false;
-                } else if (player.isFallFlying()) {
-                    player.stopFallFlying();
-                    glideTicks = 0;
-                    return;
-                }
+            if (sinceJoin < HANDSHAKE_GRACE_TICKS) {
+                sinceJoin++;
             }
 
-            if (!player.isFallFlying()) {
-                glideTicks = 0;
-                return;
-            }
-            glideTicks++;
+            // 始终推进状态机，让"上一次按键"的记忆与真实输入保持同步；
+            // 这样即便随后服务端接管，也不会留下一个假的上升沿。
+            boolean jump = client.options.keyJump.isDown();
+            boolean cancel = STATE.update(jump, player.isFallFlying());
 
-            // 服务端已生效 → 客户端兜底不跑
-            if (serverActive || serverHasMod()) {
+            // 服务端已生效（或尚在握手宽限期）→ 客户端兜底不落手
+            if (serverActive || sinceJoin <= HANDSHAKE_GRACE_TICKS || serverHasMod()) {
                 return;
             }
 
-            if (glideTicks > MIN_GLIDE_TICKS && client.options.keyJump.consumeClick()) {
+            if (cancel) {
                 player.stopFallFlying();
-                suppressWhileHeld = true;
-                glideTicks = 0;
             }
         });
     }
 
     private static void reset() {
         serverActive = false;
-        glideTicks = 0;
-        suppressWhileHeld = false;
+        sinceJoin = 0;
+        STATE.reset();
     }
 
     /** 探测服务端是否安装了 ElyOff（服务端注册了对应的 C2S 包类型）。 */
