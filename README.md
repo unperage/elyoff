@@ -10,7 +10,7 @@
 
 滑翔中按下跳跃取消
  
-## 🧠 工作原理
+## 工作原理
 
 Minecraft 的滑翔状态保存在实体的**同步标志位（shared flag 7）**
 服务端自动同步于客户端
@@ -27,7 +27,7 @@ Minecraft 的滑翔状态保存在实体的**同步标志位（shared flag 7）*
 ---
 
 
-## 🔨 构建
+## 构建
 
 ```bash
 ./gradlew :26.2:build
@@ -37,13 +37,13 @@ Minecraft 的滑翔状态保存在实体的**同步标志位（shared flag 7）*
 
 ---
 
-## 📄 许可
+## 许可
 
 [MIT](LICENSE)
 
 ---
 
-## 👤 作者与致谢
+## 作者与致谢
 
 - **作者**：unperage
 - **代码编写**：**deepseek-flash**（本项目的全部实现代码由 deepseek-flash 编写）
