@@ -6,5 +6,9 @@
   "elyoff.mode.off": "关",
   "elyoff.mode.smart": "智能",
 
-  "elyoff.force_mode.changed": "ElyOff 强制客户端：%s（当前延迟 %sms）"
+  "elyoff.force_mode.changed": "ElyOff 强制客户端：%s（当前延迟 %sms）",
+
+  "elyoff.config.title": "ElyOff 设置",
+  "elyoff.config.force_mode": "强制客户端生效：%s",
+  "elyoff.config.smart_threshold": "智能模式阈值：%sms"
 }

@@ -6,5 +6,9 @@
   "elyoff.mode.off": "OFF",
   "elyoff.mode.smart": "SMART",
 
-  "elyoff.force_mode.changed": "ElyOff force client-side: %s (ping %sms)"
+  "elyoff.force_mode.changed": "ElyOff force client-side: %s (ping %sms)",
+
+  "elyoff.config.title": "ElyOff Settings",
+  "elyoff.config.force_mode": "Force client-side: %s",
+  "elyoff.config.smart_threshold": "Smart mode threshold: %sms"
 }

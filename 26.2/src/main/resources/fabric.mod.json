@@ -18,11 +18,17 @@
     ],
     "client": [
       "io.github.unperage.elyoff.ElyOffClient"
+    ],
+    "modmenu": [
+      "io.github.unperage.elyoff.compat.ElyOffModMenu"
     ]
   },
   "depends": {
     "fabricloader": ">=${loaderVersion}",
     "minecraft": ">=${minecraftVersion}",
     "fabric-api": ">=${fabricVersion}"
+  },
+  "suggests": {
+    "modmenu": ">=${modmenuVersion}"
   }
 }
