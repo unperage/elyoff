@@ -9,7 +9,27 @@
 ## 功能
 
 滑翔中按下跳跃取消
- 
+
+**强制客户端生效（开 / 关 / 智能）**：决定延迟高的时候要不要让客户端「抢跑」。
+
+| 模式 | 行为 |
+|---|---|
+| **开** | 总是由客户端本地取消 —— 按键当 tick 就见效（0 延迟），并且**服务端会停止对你的按键做逐 tick 监控** |
+| **关** | 不强制：服务端装了就让位，取消完全由服务端权威执行（两端天然一致） |
+| **智能**（默认） | 延迟 **> 50ms** 按「开」，**≤ 50ms** 按「关」 |
+
+为什么是这个方向：服务端权威的取消要等一个完整 RTT（客户端按键 → 输入包上行 → 服务端 tick → 同步包下行），
+而客户端本地取消是**本地预测**、0 延迟。延迟越高，越值得让客户端抢跑。
+
+配置在 `config/elyoff-client.json`；也可以绑定按键在游戏内循环切换（默认未绑定）：
+
+```json
+{
+  "forceMode": "SMART",
+  "smartPingThresholdMs": 50
+}
+```
+
 ## 工作原理
 
 Minecraft 的滑翔状态保存在实体的**同步标志位（shared flag 7）**
@@ -19,12 +39,22 @@ Minecraft 的滑翔状态保存在实体的**同步标志位（shared flag 7）*
   在检测到「滑翔途中跳跃键上升沿」时调用 `stopFallFlying()`
   由服务端同步给客户端
 - **客户端**：在 `ClientTickEvents.END_CLIENT_TICK` 中读取跳跃取消滑翔
-  仅服务端未生效时启用
+  仅服务端未生效时启用（或玩家选择了「开」/「智能」判定为开时）
 
 > 客户端只看跳跃键的**按住状态**（`isDown()`）取上升沿，**不使用** `KeyMapping#consumeClick()`。
 > 原版跳跃键只被当作 `isDown()` 使用、无人消费它的点击，`clickCount` 会随每次按下单调累加且永不清理；
 > 滑翔刚过 5 tick 门槛就会取到地面起跳 / 空中起飞遗留的**陈旧按键**，
 > 这正是 1.0.0「一按跳跃起飞就被取消、而且每次都是」的根因，1.0.1 已修复。
+
+### 客户端接管时服务端不做轮询
+
+客户端开启「强制客户端生效」后会发一个 `elyoff:force_state_c2s` 包，
+服务端随即**停止对该玩家的逐 tick 监控**（`ServerElytraCancel` 直接返回，连状态机都不建）。
+取消由客户端本地预测完成，同时发 `elyoff:cancel_c2s` 让服务端权威落定一次并同步给所有人。
+
+这个包只在**接管状态发生变化时**发送（边沿触发），不是每 tick 发。开关关掉时会再发一次
+`false`，监控随即恢复。顺带解决了原版那条「靠 START_FALL_FLYING 被拒绝来停止滑翔」副作用链路
+在点得很快时会漏掉的竞态 —— 装上本模组的服务端现在是确定性通知。
 
 判定逻辑纯状态机 `CancelStateMachine`（不依赖任何 Minecraft 类）
 客户端与服务端共用同一份实现，可**离线单元测试**（见 [`tests/`](tests/README.md)）：
@@ -34,10 +64,12 @@ cd tests
 javac -encoding UTF-8 -d out \
   ../26.2/src/main/java/io/github/unperage/elyoff/logic/CancelStateMachine.java \
   ../26.2/src/main/java/io/github/unperage/elyoff/logic/ClientFallback.java \
-  CancelStateMachineTest.java ClientClickQueueTest.java ClientFallbackTest.java
+  ../26.2/src/main/java/io/github/unperage/elyoff/logic/ForceMode.java \
+  CancelStateMachineTest.java ClientClickQueueTest.java ClientFallbackTest.java ForceModeTest.java
 java -cp out CancelStateMachineTest
 java -cp out ClientClickQueueTest
 java -cp out ClientFallbackTest
+java -cp out ForceModeTest
 ```
 
 ---
@@ -54,6 +86,16 @@ java -cp out ClientFallbackTest
 ---
 
 ## 更新日志
+
+### 1.1.0
+- 新增客户端选项 **「强制客户端生效：开 / 关 / 智能」**（`config/elyoff-client.json`，默认智能）。
+  智能 = 延迟 > 50ms 时由客户端本地抢跑（0 延迟手感），≤ 50ms 时交给服务端权威执行。
+  阈值可配（`smartPingThresholdMs`），并提供一个可绑定的按键在游戏内循环切换。
+- 新增 `elyoff:force_state_c2s`：客户端申报接管状态，**服务端随即停止对该玩家的逐 tick 按键监控**。
+  只在状态变化时发送（边沿触发）。
+- 新增 `elyoff:cancel_c2s`：客户端本地取消后请服务端权威落定一次并同步给所有人。
+  这也补掉了原版「靠 START_FALL_FLYING 被拒绝来停止滑翔」副作用链路在快速点按时会漏掉的竞态。
+- 新增离线测试 `ForceModeTest`（34 项）并在 `ClientFallbackTest` 补了 force 场景（6 项）。
 
 ### 1.0.2
 - 修复 1.0.1 引入的**客户端兜底分支被永久掐死**：1.0.1 为了"等握手结论落地"加了一个 40 tick 宽限期，

@@ -1,0 +1,10 @@
+{
+  "key.category.elyoff.main": "ElyOff",
+  "key.elyoff.cycle_force_mode": "Cycle \"force client-side\"",
+
+  "elyoff.mode.on": "ON",
+  "elyoff.mode.off": "OFF",
+  "elyoff.mode.smart": "SMART",
+
+  "elyoff.force_mode.changed": "ElyOff force client-side: %s (ping %sms)"
+}

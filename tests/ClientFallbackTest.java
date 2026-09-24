@@ -31,6 +31,7 @@ public class ClientFallbackTest {
         scenario3_serverWithModIsLeftAlone();
         scenario4_handshakePacketDisablesFallback();
         scenario5_fullRoundTrip();
+        scenario6_forceOverridesServerMod();
 
         System.out.println();
         System.out.printf("共 %d 项断言, 失败 %d 项%n", checks, failures);
@@ -140,6 +141,51 @@ public class ClientFallbackTest {
             if (fb.tick(true, true, false)) afterRetakeoff++;
         }
         check("重新起飞后正常飞行，不再误取消 ★", afterRetakeoff == 0, "误取消=" + afterRetakeoff + " 次");
+        System.out.println();
+    }
+
+    /**
+     * 新增的「强制客户端生效」：force=true 时即使服务端已接管，客户端也要本地抢跑。
+     */
+    private static void scenario6_forceOverridesServerMod() {
+        System.out.println("场景6：强制客户端生效（force）");
+
+        // 服务端装了 + 不强制 → 客户端完全不落手
+        ClientFallback quiet = new ClientFallback();
+        int acted = 0;
+        for (int i = 0; i < 60; i++) {
+            if (quiet.tick(false, true, true, false)) acted++;
+        }
+        if (quiet.tick(true, true, true, false)) acted++;
+        check("serverHasMod + force=false → 不落手", acted == 0, "落手=" + acted + " 次");
+
+        // 服务端装了 + 强制 → 滑翔途中按键要本地取消
+        ClientFallback forced = new ClientFallback();
+        int early = 0;
+        for (int i = 0; i < 500; i++) {
+            if (forced.tick(false, true, true, true)) early++;
+        }
+        check("force=true 滑翔 500 tick 不自行取消", early == 0, "误取消=" + early);
+        boolean cancelled = forced.tick(true, true, true, true);
+        check("serverHasMod + force=true → 本地抢跑取消 ★", cancelled, "cancel=" + cancelled);
+
+        // 收到握手包后同理
+        ClientFallback handshaked = new ClientFallback();
+        handshaked.markServerActive();
+        int acted2 = 0;
+        for (int i = 0; i < 60; i++) {
+            if (handshaked.tick(false, true, false, false)) acted2++;
+        }
+        check("握手后 + force=false → 不落手", acted2 == 0, "落手=" + acted2 + " 次");
+        handshaked.tick(false, true, false, true);
+        check("握手后 + force=true → 本地抢跑取消 ★", handshaked.tick(true, true, false, true), "cancel=true");
+
+        // 服务端没装时，force 与否都必须照常兜底（功能不能因此消失）
+        ClientFallback noMod = new ClientFallback();
+        for (int i = 0; i < 20; i++) {
+            noMod.tick(false, true, false, false);
+        }
+        check("服务端没装 + force=false → 仍然兜底", noMod.tick(true, true, false, false), "cancel=true");
         System.out.println();
     }
 }

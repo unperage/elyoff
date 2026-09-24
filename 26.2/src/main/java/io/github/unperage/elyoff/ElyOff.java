@@ -1,5 +1,7 @@
 package io.github.unperage.elyoff;
 
+import io.github.unperage.elyoff.net.CancelC2S;
+import io.github.unperage.elyoff.net.ForceStateC2S;
 import io.github.unperage.elyoff.net.HelloC2S;
 import io.github.unperage.elyoff.net.HelloS2C;
 import io.github.unperage.elyoff.server.ServerElytraCancel;
@@ -33,10 +35,21 @@ public class ElyOff implements ModInitializer {
         // 注册双向握手包类型（两端都注册，才能编解码）
         PayloadTypeRegistry.serverboundPlay().register(HelloC2S.TYPE, HelloC2S.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(HelloS2C.TYPE, HelloS2C.CODEC);
+        // 客户端接管申报 + 客户端本地取消后的权威落定
+        PayloadTypeRegistry.serverboundPlay().register(ForceStateC2S.TYPE, ForceStateC2S.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(CancelC2S.TYPE, CancelC2S.CODEC);
 
         // 客户端问好 → 服务端回问好（客户端据此确认服务端已生效）
         ServerPlayNetworking.registerGlobalReceiver(HelloC2S.TYPE, (payload, context) ->
                 ServerPlayNetworking.send(context.player(), new HelloS2C()));
+
+        // 客户端申报"我自己在客户端处理"→ 服务端停止对该玩家的逐 tick 监控
+        ServerPlayNetworking.registerGlobalReceiver(ForceStateC2S.TYPE, (payload, context) ->
+                ServerElytraCancel.setClientForced(context.player().getUUID(), payload.force()));
+
+        // 客户端本地已取消 → 服务端权威落定一次并同步给所有人
+        ServerPlayNetworking.registerGlobalReceiver(CancelC2S.TYPE, (payload, context) ->
+                ServerElytraCancel.cancel(context.player()));
 
         // 玩家加入时主动告知客户端：服务端已安装
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->

@@ -1,0 +1,10 @@
+{
+  "key.category.elyoff.main": "ElyOff",
+  "key.elyoff.cycle_force_mode": "切换「强制客户端生效」",
+
+  "elyoff.mode.on": "开",
+  "elyoff.mode.off": "关",
+  "elyoff.mode.smart": "智能",
+
+  "elyoff.force_mode.changed": "ElyOff 强制客户端：%s（当前延迟 %sms）"
+}
