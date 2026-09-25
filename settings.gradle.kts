@@ -4,6 +4,9 @@ pluginManagement {
         id("dev.kikugie.loom-back-compat") version "0.4.2"
     }
     repositories {
+        // 国内镜像优先，避免走境外源
+        maven("https://maven.aliyun.com/repository/gradle-plugin") { name = "Aliyun Gradle Plugin" }
+        maven("https://maven.aliyun.com/repository/central") { name = "Aliyun Central" }
         maven {
             name = "Fabric"
             url = uri("https://maven.fabricmc.net/")
@@ -17,3 +20,4 @@ pluginManagement {
 
 rootProject.name = extra["modid"] as String
 include("26.2")
+include("26.3")

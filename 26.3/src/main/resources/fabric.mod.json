@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "${modid}",
+  "version": "${modVersion}+${minecraftVersion}",
+  "name": "${modName}",
+  "description": "${modDescription}",
+  "authors": [
+    "unperage"
+  ],
+  "contributors": [
+    "deepseek-flash"
+  ],
+  "license": "${modLicense}",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.unperage.elyoff.ElyOff"
+    ],
+    "client": [
+      "io.github.unperage.elyoff.ElyOffClient"
+    ],
+    "modmenu": [
+      "io.github.unperage.elyoff.compat.ElyOffModMenu"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loaderVersion}",
+    "minecraft": ">=${minecraftVersion}",
+    "fabric-api": ">=${fabricVersion}"
+  },
+  "suggests": {
+    "modmenu": ">=${modmenuVersion}"
+  }
+}
